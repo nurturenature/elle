@@ -308,6 +308,9 @@
         ; help us rule out quite a few cycle searches.
         :strong-session-PL-1 [:PL-1]
         :strong-session-PL-2 [:PL-2 :strong-session-PL-1]
+        :strong-session-monotonic-view [:monotonic-view :strong-session-PL-2]
+        :strong-session-consistent-view [:consistent-view :strong-session-monotonic-view]
+
         :strong-PL-1 [:strong-session-PL-1]
         :strong-PL-2 [:strong-session-PL-2 :strong-PL-1]
 
@@ -321,7 +324,8 @@
 
         ; Daudjee-SI, Cerone-SI
         :strong-session-snapshot-isolation [:snapshot-isolation
-                                            :strong-session-PL-2]
+                                            :strong-session-PL-2
+                                            :strong-session-consistent-view]
 
         ; TODO: does strong mean PL-SS?
         ; TODO: What about strict-1SR? Zuikeviciute's informal definitions
@@ -488,6 +492,9 @@
                                     :G0-process]
         :strong-session-PL-2       [:strong-session-PL-2-cycle-exists
                                     :G1c-process]
+        :strong-session-monotonic-view [:G1-process]
+        :strong-session-consistent-view [:G1-process
+                                         :G-single-process]
         :strong-PL-1               [:strong-PL-1-cycle-exists
                                     :G0-realtime]
         :strong-PL-2               [:strong-PL-2-cycle-exists
