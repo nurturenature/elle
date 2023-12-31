@@ -256,8 +256,7 @@
        {
         ; Might merge this into normal causal later? I'm not sure
         ; how to unify them exactly.
-        :causal-cerone          [:ROLA                        ; ROLA
-                                 :read-atomic]                ; Cerone
+        :causal-cerone          [:read-atomic]                ; Cerone
         :consistent-view        [:cursor-stability            ; Adya
                                  :monotonic-view]             ; Adya
         :conflict-serializable  [:view-serializable]
@@ -274,7 +273,8 @@
         :monotonic-atomic-view  [:read-committed]             ; Bailis
         :monotonic-view         [:PL-2]                       ; Adya
         :monotonic-snapshot-read [:PL-2]                      ; Adya
-        :parallel-snapshot-isolation [:causal-cerone]         ; Cerone, ROLA
+        :parallel-snapshot-isolation [:causal-cerone          ; Cerone
+                                      :update-atomic]         ; ROLA (which actually provides UA)
         :prefix                 [:causal-cerone]              ; Cerone
         :read-atomic            [; EXT guarantees atomic visibility, and
                                  ; monotonicity within the txn is trivially
@@ -283,7 +283,7 @@
         :read-committed         [:read-uncommitted]           ; SQL
         :repeatable-read        [:cursor-stability            ; Adya
                                  :monotonic-atomic-view]      ; Bailis
-        :ROLA                   [:read-atomic]                ; ROLA
+        :update-atomic          [:read-atomic]                ; Cerone
         :serializable           [:repeatable-read             ; SQL
                                  :snapshot-isolation          ; Bailis, Cerone
                                  :view-serializable]          ; Bernstein
@@ -483,7 +483,7 @@
         :repeatable-read           [:G1 :G2-item       ; Adya
                                     :PL-2.99-cycle-exists
                                     :lost-update]      ; Bailis
-        :ROLA                      [:lost-update]      ; ROLA
+        :update-atomic             [:lost-update]      ; Cerone
         :strict-serializable       [:G1                ; Adya
                                     :G1c-realtime      ; Adya
                                     :G2-realtime       ; Adya

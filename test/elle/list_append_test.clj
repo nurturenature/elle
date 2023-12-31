@@ -1025,7 +1025,7 @@
         [t2 t2'] (pair (op "rx0ax2"))
         [t0 t0' t1 t1' t2 t2' :as h] (h/history [t0 t0' t1 t1' t2 t2'])]
     (is (= {:valid?         false
-            :not            #{:ROLA :cursor-stability}
+            :not            #{:update-atomic :cursor-stability}
             :anomaly-types  [:G2-item :lost-update]
             :anomalies      {:lost-update
                              [{:key   :x
@@ -1198,12 +1198,15 @@
     (is (= #{:repeatable-read} (:not r)))))
 
 (deftest unfindable-g-single
+  ; NOTE: This test depends on performance: if Elle gets faster, it may start
+  ; failing. Tune up n and noise-n until you start getting timeouts again.
+  ;
   ; In this test, we construct a single G-single cycle awash in a sea of
   ; spurious G2-item cycles. This cycle times out our G-single search, but our
   ; cycle-exists pass can prove that a G-single or weaker must exist by finding
   ; an SCC.
   (let [n          1000
-        noise-n    10
+        noise-n    30
         ring (for [i (range n)]
                 {:type :ok
                  :process 0
