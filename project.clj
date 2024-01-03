@@ -26,6 +26,7 @@
                                   [spootnik/unilog "0.7.31"]]}}
   :jvm-opts ["-server"
              "-XX:-OmitStackTraceInFastThrow"
+             "-Djava.awt.headless=true"
              ;"-XX:+PrintGC"
              ;"-agentpath:/home/aphyr/yourkit/bin/linux-x86-64/libyjpagent.so=disablestacktelemetry,exceptions=disable,delay=10000,usedmem=50"
              ]
