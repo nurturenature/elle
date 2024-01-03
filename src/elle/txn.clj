@@ -662,9 +662,11 @@
   and returns a set of anomalies which would constitute a test failure.
   Defaults to {:consistency-models [:strict-serializable]}"
   [opts]
-  (set/union (cm/all-anomalies-implying (:anomalies opts))
-             (cm/anomalies-prohibited-by
-               (:consistency-models opts [:strict-serializable]))))
+  (set/union (set/difference
+              (cm/anomalies-prohibited-by
+               (:consistency-models opts [:strict-serializable]))
+              (set (:anomalies-ignored opts)))
+             (cm/all-anomalies-implying (:anomalies opts))))
 
 (defn reportable-anomaly-types
   "Anomalies worth reporting on, even if they don't cause the test to fail."
