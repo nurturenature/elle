@@ -225,6 +225,7 @@
    :update-serializable      :PL-3U    ; Adya
    :strong-session-read-uncommitted :strong-session-PL-1
    :strong-session-read-committed   :strong-session-PL-2
+   :strong-session-consistent-view  :strong-session-PL-2+
    :strong-read-uncommitted         :strong-PL-1
    :strong-read-committed           :strong-PL-2
    })
@@ -308,8 +309,7 @@
         ; help us rule out quite a few cycle searches.
         :strong-session-PL-1 [:PL-1]
         :strong-session-PL-2 [:PL-2 :strong-session-PL-1]
-        :strong-session-monotonic-view [:monotonic-view :strong-session-PL-2]
-        :strong-session-consistent-view [:consistent-view :strong-session-monotonic-view]
+        :strong-session-consistent-view [:consistent-view :strong-session-PL-2]
 
         :strong-PL-1 [:strong-session-PL-1]
         :strong-PL-2 [:strong-session-PL-2 :strong-PL-1]
@@ -324,7 +324,6 @@
 
         ; Daudjee-SI, Cerone-SI
         :strong-session-snapshot-isolation [:snapshot-isolation
-                                            :strong-session-PL-2
                                             :strong-session-consistent-view]
 
         ; TODO: does strong mean PL-SS?
@@ -492,7 +491,6 @@
                                     :G0-process]
         :strong-session-PL-2       [:strong-session-PL-2-cycle-exists
                                     :G1c-process]
-        :strong-session-monotonic-view [:G1-process]
         :strong-session-consistent-view [:G1-process
                                          :G-single-process]
         :strong-PL-1               [:strong-PL-1-cycle-exists
