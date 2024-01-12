@@ -224,6 +224,45 @@
                      reads)))
          {})))
 
+(defn wfr-txn-order
+  "Given a history, process, and an index of writes, create a <ww write follows read graph."
+  [history ext-write-index process]
+  (let [[g _observed]
+        (->> history
+             (h/filter (comp #{process} :process))
+             (reduce (fn [[g observed] {:keys [value] :as op}]
+                       (let [this-writes (txn/ext-writes value)
+                             this-reads  (txn/ext-reads value)
+                             observed    (into observed (merge this-reads this-writes))]
+                         (if (seq this-writes)
+                           (let [ver-writes (->> observed
+                                                 (reduce (fn [acc [k v]]
+                                                           (into acc (get-in ext-write-index [k v])))
+                                                         #{}))
+                                 ver-writes (disj ver-writes op)]
+                             [(g/link-all-to g ver-writes op ww) #{}])
+                           [g observed])))
+                     [(b/linear (g/op-digraph)) #{}]))]
+    (b/forked g)))
+
+(defn wfr-txn-graph
+  "Given a history, creates a <ww graph with writes follow reads ordering.
+   We are inclusive in linking to observed versions, including
+   reading our own writes, and observing reads in the write containing txn."
+  [history]
+  (let [history (->> history
+                     h/oks)
+        processes (h/task history :processes [] (->> history
+                                                     (h/map :process)
+                                                     distinct))
+        ext-write-index (h/task history :ext-write-index [] (ext-index txn/ext-writes history))
+        graph (->> @processes
+                   (map (partial wfr-txn-order history @ext-write-index))
+                   (apply g/digraph-union))]
+    {:graph     graph
+     :explainer nil}))
+
+
 (defn ext-keys
   "Given an operation, returns the set of keys we know it interacted with via
   an external read or write."
@@ -574,6 +613,12 @@
                      (:wfr-keys? opts)
                      (conj {:name     :wfr-keys
                             :grapher  wfr-version-graphs})
+                     
+                     (:wfr-txns? opts)
+                     (conj {:name     :wfr-txns
+                            :grapher  (comp transaction-graph->version-graphs
+                                            :graph
+                                            wfr-txn-graph)})
 
                      (:sequential-keys? opts)
                      (conj {:name    :sequential-keys
