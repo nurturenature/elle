@@ -231,12 +231,13 @@
         (->> history
              (h/filter (comp #{process} :process))
              (reduce (fn [[g observed-vers linked-vers] {:keys [value] :as op}]
-                       (let [this-writes   (->> (txn/ext-writes value) (into #{}))
-                             this-reads    (->> (txn/ext-reads  value) (into #{}))]
-                         (if (seq this-writes)
-                           (let [new-vers   (set/difference (set/union observed-vers this-reads)
-                                                            linked-vers)
-                                 new-writes (->> new-vers
+                       (let [this-writes (->> (txn/ext-writes value) (into #{}))
+                             this-reads  (->> (txn/ext-reads  value) (into #{}))
+                             new-vers    (set/difference (set/union observed-vers this-reads)
+                                                         linked-vers)]
+                         (if (and (seq this-writes)
+                                  (seq new-vers))
+                           (let [new-writes (->> new-vers
                                                  (reduce (fn [acc [k v]]
                                                            (into acc (get-in ext-write-index [k v])))
                                                          #{}))
@@ -244,7 +245,7 @@
                              [(g/link-all-to g new-writes op ww)
                               (set/union observed-vers this-writes this-reads)
                               (set/union linked-vers new-vers)])
-                           [g (set/union observed-vers this-reads) linked-vers])))
+                           [g (set/union observed-vers this-writes this-reads) linked-vers])))
                      [(b/linear (g/op-digraph)) #{} #{}]))]
     (b/forked g)))
 
