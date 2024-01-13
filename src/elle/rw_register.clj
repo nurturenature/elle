@@ -227,21 +227,21 @@
 (defn wfr-txn-order
   "Given a history, process, and an index of writes, create a <ww write follows read graph."
   [history ext-write-index process]
-  (let [[g _observed]
+  (let [[g _observed-vers]
         (->> history
              (h/filter (comp #{process} :process))
-             (reduce (fn [[g observed] {:keys [value] :as op}]
-                       (let [this-writes (txn/ext-writes value)
-                             this-reads  (txn/ext-reads value)
-                             observed    (into observed (merge this-reads this-writes))]
+             (reduce (fn [[g observed-vers] {:keys [value] :as op}]
+                       (let [this-writes   (txn/ext-writes value)
+                             this-reads    (txn/ext-reads value)
+                             observed-vers (into (into observed-vers this-reads) this-writes)]
                          (if (seq this-writes)
-                           (let [ver-writes (->> observed
-                                                 (reduce (fn [acc [k v]]
-                                                           (into acc (get-in ext-write-index [k v])))
-                                                         #{}))
-                                 ver-writes (disj ver-writes op)]
-                             [(g/link-all-to g ver-writes op ww) #{}])
-                           [g observed])))
+                           (let [observed-writes (->> observed-vers
+                                                      (reduce (fn [acc [k v]]
+                                                                (into acc (get-in ext-write-index [k v])))
+                                                              #{}))
+                                 observed-writes (disj observed-writes op)]  ; don't link to self
+                             [(g/link-all-to g observed-writes op ww) #{}])
+                           [g observed-vers])))
                      [(b/linear (g/op-digraph)) #{}]))]
     (b/forked g)))
 
