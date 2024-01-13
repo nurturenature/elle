@@ -251,8 +251,8 @@
 
 (defn wfr-txn-graph
   "Given a history, creates a <ww graph with writes follow reads ordering.
-   We are inclusive in linking to observed versions, including
-   reading our own writes, and observing reads in the write containing txn."
+   Is inclusive in linking to observed versions, 
+   e.g. read our own writes, and observe reads in the write containing txn."
   [history]
   (let [history (->> history
                      h/oks)
