@@ -224,8 +224,9 @@
                      reads)))
          {})))
 
-(defn wfr-txn-order
-  "Given a history, process, and an index of writes, create a <ww write follows read graph."
+(defn wfr-process-order
+  "Given a history, its index of writes, and a process, create a <ww write follows read ordered transaction graph.
+   We read, and link to our own writes, and observe reads in the write containing txn."
   [history ext-write-index process]
   (let [[g _observed-vers _linked-vers]
         (->> history
@@ -249,10 +250,8 @@
                      [(b/linear (g/op-digraph)) #{} #{}]))]
     (b/forked g)))
 
-(defn wfr-txn-graph
-  "Given a history, creates a <ww graph with writes follow reads ordering.
-   Is inclusive in linking to observed versions, 
-   e.g. read our own writes, and observe reads in the write containing txn."
+(defn wfr-process-graph
+  "Given a history, creates a <ww transaction graph with writes follow reads ordering in processes."
   [history]
   (let [history (->> history
                      h/oks)
@@ -261,7 +260,7 @@
                                                      distinct))
         ext-write-index (h/task history :ext-write-index [] (ext-index txn/ext-writes history))
         graph (->> @processes
-                   (map (partial wfr-txn-order history @ext-write-index))
+                   (map (partial wfr-process-order history @ext-write-index))
                    (apply g/digraph-union))]
     {:graph     graph
      :explainer nil}))
@@ -618,11 +617,11 @@
                      (conj {:name     :wfr-keys
                             :grapher  wfr-version-graphs})
                      
-                     (:wfr-txns? opts)
-                     (conj {:name     :wfr-txns
+                     (:wfr-process? opts)
+                     (conj {:name     :wfr-process
                             :grapher  (comp transaction-graph->version-graphs
                                             :graph
-                                            wfr-txn-graph)})
+                                            wfr-process-graph)})
 
                      (:sequential-keys? opts)
                      (conj {:name    :sequential-keys
@@ -898,6 +897,9 @@
                             version order.
 
     :wfr-keys?              Assume that within each transaction, writes follow
+                            reads, and use that to infer a version order.
+
+    :wfr-process?           Assume that within each process, writes follow
                             reads, and use that to infer a version order.
 
     :directory              Where to output files, if desired. (default nil)
