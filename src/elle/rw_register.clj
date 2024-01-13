@@ -224,7 +224,27 @@
                      reads)))
          {})))
 
-(defn wfr-process-order
+(defrecord WFRWWExplainer [wfr-ww-graph]
+  elle/DataExplainer
+  (explain-pair-data [_ a b]
+    (when (try
+            (bg/edge wfr-ww-graph a b)
+            true
+            (catch [] _
+              false))
+      (let [writes   (txn/ext-writes (:value a))
+            writes'  (txn/ext-reads  (:value b))
+            process' (txn/ext-reads  (:process b))]
+        {:type     :wfr-ww
+         :writes   writes
+         :writes'  writes'
+         :process' process'})))
+
+  (render-explanation [_ {:keys [writes writes' process']} a-name b-name]
+    (str a-name "'s writes of " writes " were observed by process " process'
+         " before it executed " b-name "'s writes of " writes')))
+
+(defn wfr-ww-transaction-order
   "Given a history, its index of writes, and a process, create a <ww write follows read ordered transaction graph.
    We read, and link to our own writes, and observe reads in the write containing txn."
   [history ext-write-index process]
@@ -250,7 +270,7 @@
                      [(b/linear (g/op-digraph)) #{} #{}]))]
     (b/forked g)))
 
-(defn wfr-process-graph
+(defn wfr-ww-transaction-graph
   "Given a history, creates a <ww transaction graph with writes follow reads ordering in processes."
   [history]
   (let [history (->> history
@@ -260,10 +280,10 @@
                                                      distinct))
         ext-write-index (h/task history :ext-write-index [] (ext-index txn/ext-writes history))
         graph (->> @processes
-                   (map (partial wfr-process-order history @ext-write-index))
+                   (map (partial wfr-ww-transaction-order history @ext-write-index))
                    (apply g/digraph-union))]
     {:graph     graph
-     :explainer nil}))
+     :explainer (WFRWWExplainer. graph)}))
 
 
 (defn ext-keys
@@ -621,7 +641,7 @@
                      (conj {:name     :wfr-process
                             :grapher  (comp transaction-graph->version-graphs
                                             :graph
-                                            wfr-process-graph)})
+                                            wfr-ww-transaction-graph)})
 
                      (:sequential-keys? opts)
                      (conj {:name    :sequential-keys
