@@ -227,22 +227,25 @@
 (defn wfr-txn-order
   "Given a history, process, and an index of writes, create a <ww write follows read graph."
   [history ext-write-index process]
-  (let [[g _observed-vers]
+  (let [[g _observed-vers _linked-vers]
         (->> history
              (h/filter (comp #{process} :process))
-             (reduce (fn [[g observed-vers] {:keys [value] :as op}]
-                       (let [this-writes   (txn/ext-writes value)
-                             this-reads    (txn/ext-reads value)
-                             observed-vers (into (into observed-vers this-reads) this-writes)]
+             (reduce (fn [[g observed-vers linked-vers] {:keys [value] :as op}]
+                       (let [this-writes   (->> (txn/ext-writes value) (into #{}))
+                             this-reads    (->> (txn/ext-reads  value) (into #{}))]
                          (if (seq this-writes)
-                           (let [observed-writes (->> observed-vers
-                                                      (reduce (fn [acc [k v]]
-                                                                (into acc (get-in ext-write-index [k v])))
-                                                              #{}))
-                                 observed-writes (disj observed-writes op)]  ; don't link to self
-                             [(g/link-all-to g observed-writes op ww) #{}])
-                           [g observed-vers])))
-                     [(b/linear (g/op-digraph)) #{}]))]
+                           (let [new-vers   (set/difference (set/union observed-vers this-reads)
+                                                            linked-vers)
+                                 new-writes (->> new-vers
+                                                 (reduce (fn [acc [k v]]
+                                                           (into acc (get-in ext-write-index [k v])))
+                                                         #{}))
+                                 new-writes (disj new-writes op)]  ; don't link to self
+                             [(g/link-all-to g new-writes op ww)
+                              (set/union observed-vers this-writes this-reads)
+                              (set/union linked-vers new-vers)])
+                           [g (set/union observed-vers this-reads) linked-vers])))
+                     [(b/linear (g/op-digraph)) #{} #{}]))]
     (b/forked g)))
 
 (defn wfr-txn-graph
