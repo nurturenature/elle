@@ -224,25 +224,33 @@
                      reads)))
          {})))
 
-(defrecord WFRWWExplainer [wfr-ww-graph]
+(defrecord WFRWWExplainer [ext-read-index]
   elle/DataExplainer
   (explain-pair-data [_ a b]
-    (when (try
-            (bg/edge wfr-ww-graph a b)
-            true
-            (catch Exception _
-              false))
-      (let [writes   (txn/ext-writes (:value a))
-            writes'  (txn/ext-reads  (:value b))
-            process' (:process b)]
-        {:type     :wfr-ww
-         :writes   writes
-         :writes'  writes'
-         :process' process'})))
+    (let [writes   (txn/ext-writes (:value a))
+          process' (:process b)
+          index'   (:index b)
+          writes'  (txn/ext-writes (:value b))
+          [w'-k w'-v] (first writes')]
+      (when (and (seq writes)
+                 (seq writes'))
+        (->> writes
+             (reduce (fn [_ [k v]]
+                       (when (->> (get-in ext-read-index [k v])
+                                  (filter (comp #{process'} :process))
+                                  (filter (comp (partial > index') :index))
+                                  seq)
+                         (reduced {:type     :ww
+                                   :a-mop-index (index-of (:value a) [:w k v])
+                                   :b-mop-index (index-of (:value b) [:w w'-k w'-v])
+                                   :write    [k v]
+                                   :write'   [w'-k w'-v]
+                                   :process' process'})))
+                     nil)))))
 
-  (render-explanation [_ {:keys [writes writes' process']} a-name b-name]
-    (str a-name "'s writes of " writes " were observed by process " process'
-         " before it executed " b-name "'s writes of " writes')))
+  (render-explanation [_ {:keys [write write' process']} a-name b-name]
+    (str a-name "'s write of " write " was observed by process " process'
+         " before it executed " b-name "'s writes of " write')))
 
 (defn wfr-ww-transaction-order
   "Given a history, its index of writes, and a process, create a <ww write follows read ordered transaction graph.
@@ -273,18 +281,17 @@
 (defn wfr-ww-transaction-graph
   "Given a history, creates a <ww transaction graph with writes follow reads ordering in processes."
   [history]
-  (let [history (->> history
-                     h/oks)
-        processes (h/task history :processes [] (->> history
-                                                     (h/map :process)
-                                                     distinct))
+  (let [history         (h/oks history)
+        processes       (h/task history :processes [] (->> history
+                                                           (h/map :process)
+                                                           distinct))
         ext-write-index (h/task history :ext-write-index [] (ext-index txn/ext-writes history))
+        ext-read-index  (h/task history :ext-read-index  [] (ext-index txn/ext-reads  history))
         graph (->> @processes
                    (map (partial wfr-ww-transaction-order history @ext-write-index))
                    (apply g/digraph-union))]
     {:graph     graph
-     :explainer (WFRWWExplainer. graph)}))
-
+     :explainer (WFRWWExplainer. @ext-read-index)}))
 
 (defn ext-keys
   "Given an operation, returns the set of keys we know it interacted with via
