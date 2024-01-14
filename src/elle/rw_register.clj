@@ -230,11 +230,11 @@
     (when (try
             (bg/edge wfr-ww-graph a b)
             true
-            (catch [] _
+            (catch Exception _
               false))
       (let [writes   (txn/ext-writes (:value a))
             writes'  (txn/ext-reads  (:value b))
-            process' (txn/ext-reads  (:process b))]
+            process' (:process b)]
         {:type     :wfr-ww
          :writes   writes
          :writes'  writes'
